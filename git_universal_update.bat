@@ -1,121 +1,129 @@
 @echo off
 setlocal EnableDelayedExpansion
-title Git Universal Update V2
+title Git Universal Update V4 - Elite
 
-echo ========================================
-echo   Git Universal Update (Stable V2)
-echo ========================================
+:: Enable Colors
+for /f %%a in ('echo prompt $E ^| cmd') do set "ESC=%%a"
+
+set "GREEN=%ESC%[92m"
+set "RED=%ESC%[91m"
+set "YELLOW=%ESC%[93m"
+set "CYAN=%ESC%[96m"
+set "RESET=%ESC%[0m"
+
+echo %CYAN%========================================%RESET%
+echo %CYAN%   Git Universal Update (Elite V4)%RESET%
+echo %CYAN%========================================%RESET%
 echo.
 
 :: -------------------------------------------------
-:: 1) Initialize repo if not exists
+:: 1) Init if needed
 :: -------------------------------------------------
 if not exist ".git" (
-    echo 🚀 Initializing new Git repository...
+    echo %YELLOW%Initializing new repository...%RESET%
     git init
     echo.
 )
 
 :: -------------------------------------------------
-:: 2) Detect current branch
+:: 2) Detect Branch
 :: -------------------------------------------------
 for /f "delims=" %%i in ('git branch --show-current 2^>nul') do set currentBranch=%%i
+if not defined currentBranch set currentBranch=main
 
-if not defined currentBranch (
-    set currentBranch=main
-)
-
-echo 🌿 Current branch: %currentBranch%
+echo %GREEN%Current branch:%RESET% %currentBranch%
 echo.
 
 :: -------------------------------------------------
-:: 3) Ask for branch (default current)
+:: 3) Ask branch
 :: -------------------------------------------------
 set "branchName="
 set /p "branchName=Enter branch name (default: %currentBranch%): "
-
-if not defined branchName (
-    set branchName=%currentBranch%
-)
+if not defined branchName set branchName=%currentBranch%
 
 echo.
-echo 📂 Files status:
 git status
 echo.
 
 :: -------------------------------------------------
-:: 4) Check if there is anything to commit
+:: 4) Commit if needed
 :: -------------------------------------------------
-git diff --cached --quiet
 git diff --quiet
-if %errorlevel%==0 (
-    echo ⚠ Nothing to commit. Working tree clean.
-) else (
-    :: Ask for commit message
+if not %errorlevel%==0 (
     set "commitMsg="
     set /p "commitMsg=Enter commit message: "
-
     if not defined commitMsg (
-        echo ❌ Commit message cannot be empty.
+        echo %RED%Commit message cannot be empty.%RESET%
         pause
         exit /b
     )
 
-    echo.
-    echo ➕ Adding files...
     git add .
-
-    echo.
-    echo 💾 Committing...
     git commit -m "!commitMsg!"
+) else (
+    echo %YELLOW%Nothing to commit.%RESET%
 )
 
 :: -------------------------------------------------
-:: 5) Check if remote exists
+:: 5) Remote Check
 :: -------------------------------------------------
 git remote | findstr origin >nul
 if errorlevel 1 (
     echo.
-    echo 🔗 No remote repository found.
-
+    echo %YELLOW%No remote found.%RESET%
     set "repoURL="
     set /p "repoURL=Enter GitHub repository URL: "
-
     if not defined repoURL (
-        echo ❌ Repository URL cannot be empty.
+        echo %RED%Repository URL cannot be empty.%RESET%
         pause
         exit /b
     )
-
     git remote add origin "!repoURL!"
 )
 
 :: -------------------------------------------------
-:: 6) Check internet connection
+:: 6) Internet Check
 :: -------------------------------------------------
-echo.
-echo 🌍 Checking internet connection...
 ping github.com -n 1 >nul
 if errorlevel 1 (
-    echo ❌ No internet connection. Cannot push.
+    echo %RED%No internet connection.%RESET%
     pause
     exit /b
 )
 
 :: -------------------------------------------------
-:: 7) Push safely
+:: 7) Smart Push
 :: -------------------------------------------------
 echo.
-echo 🚀 Pushing to %branchName% ...
+echo %CYAN%Pushing...%RESET%
 git push -u origin %branchName%
 
 if errorlevel 1 (
-    echo ❌ Push failed. Check credentials or branch name.
-    pause
-    exit /b
+    echo.
+    echo %YELLOW%Remote has changes. Attempting safe merge...%RESET%
+
+    git pull origin %branchName% --allow-unrelated-histories --no-edit
+
+    if errorlevel 1 (
+        echo.
+        echo %RED%Merge conflict detected!%RESET%
+        echo Please resolve conflicts manually.
+        pause
+        exit /b
+    )
+
+    echo.
+    echo %CYAN%Retrying push...%RESET%
+    git push -u origin %branchName%
+
+    if errorlevel 1 (
+        echo %RED%Push failed again.%RESET%
+        pause
+        exit /b
+    )
 )
 
 echo.
-echo ✅ Done Successfully!
+echo %GREEN%All Done Successfully!%RESET%
 pause
 exit /b
